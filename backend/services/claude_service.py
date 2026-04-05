@@ -71,27 +71,29 @@ Generate the required JSON output."""
         )
 
         response_text = response.choices[0].message.content or ""
-
-        # Strip markdown code fences if the model wraps the output anyway
         stripped = response_text.strip()
-        if stripped.startswith("```json"):
-            stripped = stripped[7:]
-            if stripped.endswith("```"):
-                stripped = stripped[:-3]
-        elif stripped.startswith("```"):
-            stripped = stripped[3:]
-            if stripped.endswith("```"):
-                stripped = stripped[:-3]
 
-        data = json.loads(stripped.strip())
+        # Extract JSON block between the first { and last }
+        try:
+            start_index = stripped.find('{')
+            end_index = stripped.rfind('}')
+            if start_index == -1 or end_index == -1:
+                raise ValueError("No JSON object found in response")
+            
+            json_str = stripped[start_index:end_index+1]
+            data = json.loads(json_str)
 
-        return GenerateResponse(
-            server_code=data["server_code"],
-            tools=[ToolSchema(**t) for t in data["tools"]],
-            install_command=data["install_command"],
-            claude_config=data["claude_config"],
-            readme=data["readme"],
-        )
+            return GenerateResponse(
+                server_code=data["server_code"],
+                tools=[ToolSchema(**t) for t in data["tools"]],
+                install_command=data["install_command"],
+                claude_config=data["claude_config"],
+                readme=data["readme"],
+            )
+        except (ValueError, KeyError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to parse LLM response: {str(e)}")
+            logger.error(f"Raw response: {response_text}")
+            raise e
     except Exception as e:
         logger.error(f"Failed to generate MCP server via Groq ({model}): {str(e)}")
         raise e

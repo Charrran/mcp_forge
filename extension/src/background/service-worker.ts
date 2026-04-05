@@ -21,7 +21,11 @@ const BACKEND_URL = "http://localhost:8000";
 // ── Persist state to chrome.storage.session ──
 async function persistState() {
   try {
-    await chrome.storage.session.set({ mcpForgeState: state });
+    await chrome.storage.session.set({ 
+      mcpForgeState: state,
+      mcpForgeActiveTabId: activeTabId,
+      mcpForgeRequests: capturedRequests
+    });
   } catch {
     // storage might not be available
   }
@@ -30,10 +34,14 @@ async function persistState() {
 // ── Restore state on startup ──
 async function restoreState() {
   try {
-    const result = await chrome.storage.session.get("mcpForgeState");
-    if (result.mcpForgeState) {
-      state = result.mcpForgeState;
-    }
+    const result = await chrome.storage.session.get([
+      "mcpForgeState", 
+      "mcpForgeActiveTabId", 
+      "mcpForgeRequests"
+    ]);
+    if (result.mcpForgeState) state = result.mcpForgeState;
+    if (result.mcpForgeActiveTabId) activeTabId = result.mcpForgeActiveTabId || null;
+    if (result.mcpForgeRequests) capturedRequests = result.mcpForgeRequests || [];
   } catch {
     // use default
   }
@@ -241,9 +249,18 @@ chrome.runtime.onMessage.addListener(
         return true; // async response
 
       case "STOP_RECORDING":
+        // Set phase to processing immediately to avoid message timeout
+        state.phase = "PROCESSING";
+        persistState();
+        
         stopAndForge()
           .then(() => sendResponse({ success: true }))
-          .catch((err) => sendResponse({ success: false, error: err.message }));
+          .catch((err) => {
+            state.phase = "ERROR";
+            state.error = err.message || "Unknown error during Forge";
+            persistState();
+            sendResponse({ success: false, error: err.message });
+          });
         return true;
 
       case "GET_STATUS":

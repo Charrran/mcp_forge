@@ -50,11 +50,16 @@ def is_api_endpoint(url: str, mime_type: str, req_type: str) -> bool:
 
 def extract_headers(har_headers: List[Dict[str, str]]) -> Dict[str, str]:
     useful = {}
-    ignore = ["accept", "accept-encoding", "accept-language", "connection", "host", 
-              "origin", "referer", "user-agent", "content-length", "cookie", "dnt", "pragma", "cache-control"]
+    ignore = [
+        "accept", "accept-encoding", "accept-language", "connection", "host", 
+        "origin", "referer", "user-agent", "content-length", "cookie", "dnt", 
+        "pragma", "cache-control", "upgrade-insecure-requests", "sec-ch-ua",
+        "sec-ch-ua-mobile", "sec-ch-ua-platform", "sec-fetch-dest", 
+        "sec-fetch-mode", "sec-fetch-site", "sec-fetch-user"
+    ]
     for h in har_headers:
         name = h["name"].lower()
-        if name not in ignore and not name.startswith("sec-"):
+        if name not in ignore and not name.startswith("sec-") and not name.startswith("x-"):
             useful[h["name"]] = h["value"]
     return useful
 
@@ -90,12 +95,14 @@ def parse_har_file(content: str) -> List[HAREndpoint]:
         post_data = request.get("postData")
         if post_data:
             request_body = post_data.get("text")
+            if request_body and len(request_body) > 200:
+                request_body = request_body[:200] + "... [truncated]"
             
         status = response.get("status", 0)
         
         response_body = response.get("content", {}).get("text", "")
         if response_body:
-            response_body = response_body[:150]
+            response_body = response_body[:100]
 
         endpoint = HAREndpoint(
             method=method,
