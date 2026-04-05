@@ -1,61 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-<<<<<<< HEAD
-import { UploadCloud, Sparkles, XIcon, FileIcon, Home, Server, FileJson, FileCode2, BookOpen, Copy, Check, AlertCircle, Download } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import JSZip from "jszip";
-
-interface ToolSchema {
-    name: string;
-    description: string;
-    parameters: Record<string, unknown>;
-    endpoint: string;
-    method: string;
-}
-
-interface GenerateResponse {
-    server_code: string;
-    tools: ToolSchema[];
-    install_command: string;
-    claude_config: Record<string, unknown>;
-    readme: string;
-}
-
-function CopyButton({ text }: { text: string }) {
-    const [copied, setCopied] = useState(false);
-    const handleCopy = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-    return (
-        <button
-            onClick={handleCopy}
-            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80 transition-all"
-            title="Copy to clipboard"
-        >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-        </button>
-    );
-}
-
-export function AnimatedAIChat() {
-    const [file, setFile] = useState<File | null>(null);
-    const [taskDesc, setTaskDesc] = useState("");
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [result, setResult] = useState<GenerateResponse | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [serverName, setServerName] = useState("");
-
-    // Instead of complex routing, we use simple location matching for our two pages
-    const isReservePage = typeof window !== 'undefined' && window.location.pathname === "/mcp-reserve";
-
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-=======
 import {
   UploadCloud,
   Sparkles,
@@ -91,7 +37,8 @@ import JSZip from "jszip";
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
-  const copy = () => {
+  const copy = (e: React.MouseEvent) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
@@ -100,15 +47,16 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   return (
     <button
       onClick={copy}
-      className="flex items-center gap-1 text-[10px] text-white/40 hover:text-white/80 transition-colors"
+      className={cn(
+        "flex items-center gap-1 text-[10px] transition-colors p-1.5 rounded-lg bg-white/5",
+        copied ? "text-emerald-400" : "text-white/40 hover:text-white/80 hover:bg-white/10"
+      )}
     >
-      {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
       {label ?? (copied ? "Copied!" : "Copy")}
     </button>
   );
 }
-
-// (DownloadButton removed in favor of Zip download)
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Result output cards (rendered after generation)
@@ -123,6 +71,25 @@ function ResultCards({
 }) {
   const configJson = JSON.stringify(result.claude_config, null, 2);
 
+  const downloadZip = async () => {
+    const zip = new JSZip();
+    const safeName = serverName.trim().replace(/\s+/g, "_").toLowerCase() || "mcp_server";
+    
+    zip.file(`${safeName}_mcp.py`, result.server_code);
+    zip.file(`claude_config.json`, configJson);
+    zip.file(`README.md`, result.readme);
+    
+    const content = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeName}_mcp_bundle.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -136,25 +103,11 @@ function ResultCards({
           Generation Complete
         </h3>
         <button
-          onClick={async () => {
-            const zip = new JSZip();
-            zip.file(`${serverName}_mcp.py`, result.server_code);
-            zip.file(`claude_config.json`, JSON.stringify(result.claude_config, null, 2));
-            zip.file(`README.md`, result.readme);
-            const content = await zip.generateAsync({ type: "blob" });
-            const url = URL.createObjectURL(content);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${serverName}_mcp_bundle.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-b from-white/10 to-white/5 hover:from-white/20 hover:to-white/10 border border-white/10 text-white rounded-xl text-xs font-semibold transition-all shadow-sm"
+          onClick={downloadZip}
+          className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border border-white/10 text-white rounded-xl text-xs font-bold transition-all shadow-xl shadow-indigo-500/20"
         >
           <Archive className="w-4 h-4" />
-          Download ZIP
+          Download ZIP Bundle
         </button>
       </div>
 
@@ -169,55 +122,62 @@ function ResultCards({
               </div>
               <div className="font-heading font-medium text-sm">The AI Tool</div>
             </div>
+            <CopyButton text={result.server_code} />
+          </div>
+          <div className="text-xs font-mono text-white/40 truncate">{serverName}_mcp.py</div>
+          <pre className="text-[10px] font-mono text-white/30 leading-relaxed overflow-hidden max-h-24 text-ellipsis whitespace-pre-wrap break-all">
+            {result.server_code.slice(0, 350)}…
+          </pre>
+          <div className="text-[10px] text-white/20 mt-auto flex items-center gap-2">
+             <span className="bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-mono">
+                {result.tools.length} Tools
+             </span>
+          </div>
+        </div>
+
+        {/* Card 2 — Claude config */}
+        <div className="flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.03] transition-colors relative group min-h-[180px]">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
             <div className="flex items-center gap-3">
-              <CopyButton text={result.server_code} />
+              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-300">
+                <FileJson className="w-5 h-5" />
+              </div>
+              <div className="font-heading font-medium text-sm">The Config</div>
             </div>
+            <CopyButton text={configJson} />
           </div>
-        <div className="text-xs font-mono text-white/40 truncate">{serverName}_mcp.py</div>
-        <pre className="text-[10px] font-mono text-white/30 leading-relaxed overflow-hidden max-h-24 text-ellipsis whitespace-pre-wrap break-all">
-          {result.server_code.slice(0, 350)}…
-        </pre>
-        <div className="text-[10px] text-white/20 mt-auto">
-          {result.tools.length} tool{result.tools.length !== 1 ? "s" : ""} generated
+          <div className="text-xs font-mono text-white/40 truncate">claude_config.json</div>
+          <pre className="text-[10px] font-mono text-white/30 leading-relaxed overflow-hidden max-h-24 whitespace-pre-wrap break-all">
+            {configJson.slice(0, 350)}…
+          </pre>
+          <div className="text-[9px] text-white/20 mt-auto px-2 py-1 bg-white/[0.03] border border-white/5 rounded-lg font-mono truncate">
+            {result.install_command}
+          </div>
         </div>
-      </div>
 
-      {/* Card 2 — Claude config */}
-      <div className="flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.03] transition-colors relative group min-h-[180px]">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-300">
-              <FileJson className="w-5 h-5" />
+        {/* Card 3 — README */}
+        <div className="flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.03] transition-colors relative group min-h-[180px]">
+          <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
+          <div className="flex items-center justify-between border-b border-white/5 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-fuchsia-500/10 text-fuchsia-300">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="font-heading font-medium text-sm">The README</div>
             </div>
-            <div className="font-heading font-medium text-sm">The Config</div>
+            <CopyButton text={result.readme} />
           </div>
-          <CopyButton text={configJson} />
-        </div>
-        <div className="text-xs font-mono text-white/40 truncate">claude_config.json</div>
-        <pre className="text-[10px] font-mono text-white/30 leading-relaxed overflow-hidden max-h-24 whitespace-pre-wrap break-all">
-          {configJson.slice(0, 350)}…
-        </pre>
-        <div className="text-[10px] text-white/20 mt-auto font-mono">{result.install_command}</div>
-      </div>
-
-      {/* Card 3 — README */}
-      <div className="flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.03] transition-colors relative group min-h-[180px]">
-        <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-fuchsia-500/10 text-fuchsia-300">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <div className="font-heading font-medium text-sm">The README</div>
+          <div className="text-xs font-mono text-white/40 truncate">README.md</div>
+          <p className="text-[10px] text-white/30 leading-relaxed overflow-hidden max-h-24 whitespace-pre-wrap break-all">
+            {result.readme.slice(0, 350)}…
+          </p>
+          <div className="mt-auto flex items-center gap-2">
+              <span className="text-[10px] bg-fuchsia-500/20 text-fuchsia-300 px-2 py-0.5 rounded-full font-mono uppercase">
+                  Documentation
+              </span>
           </div>
-          <CopyButton text={result.readme} />
         </div>
-        <div className="text-xs font-mono text-white/40 truncate">README.md</div>
-        <p className="text-[10px] text-white/30 leading-relaxed overflow-hidden max-h-24 whitespace-pre-wrap break-all">
-          {result.readme.slice(0, 350)}…
-        </p>
-      </div>
       </div>
     </motion.div>
   );
@@ -242,7 +202,7 @@ function PlaceholderCards() {
       ].map(({ icon, label, filename, accent }) => (
         <div
           key={label}
-          className="flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.03] transition-colors relative group"
+          className="flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.03] transition-colors relative group opacity-50"
         >
           <div className={cn(
             "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none bg-gradient-to-br to-transparent",
@@ -260,6 +220,7 @@ function PlaceholderCards() {
             <div className="font-heading font-medium text-sm">{label}</div>
           </div>
           <div className="text-xs font-mono text-white/40 truncate">{filename}</div>
+          <div className="text-[10px] text-white/20 mt-auto">Waiting for Forge...</div>
         </div>
       ))}
     </motion.div>
@@ -297,8 +258,8 @@ function ReservePage() {
         animate={{ opacity: 1 }}
         className="flex flex-col items-center justify-center w-full min-h-[260px] gap-4 mt-10"
       >
-        <div className="w-8 h-8 rounded-full border border-white/20 border-t-white/70 animate-spin" />
-        <p className="text-white/30 text-xs">Loading registry…</p>
+        <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white/70 animate-spin" />
+        <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Scanning Reserves…</p>
       </motion.div>
     );
   }
@@ -310,16 +271,16 @@ function ReservePage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center justify-center w-full min-h-[260px] gap-4 mt-10"
       >
-        <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-          <AlertCircle className="w-6 h-6 text-red-400" />
+        <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+          <AlertCircle className="w-6 h-6" />
         </div>
-        <p className="text-white/50 text-sm">{error}</p>
+        <p className="text-red-400/70 text-sm font-medium">{error}</p>
         <button
           onClick={load}
-          className="flex items-center gap-2 text-xs text-white/40 hover:text-white/80 transition-colors"
+          className="flex items-center gap-2 px-6 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-white/60 hover:text-white transition-all border border-white/5"
         >
           <RefreshCw className="w-3 h-3" />
-          Retry
+          Reconnect
         </button>
       </motion.div>
     );
@@ -335,13 +296,13 @@ function ReservePage() {
       >
         <div className="w-24 h-24 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6 relative overflow-hidden backdrop-blur-sm group">
           <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/10 to-transparent pointer-events-none" />
-          <Server className="w-10 h-10 text-white/20 group-hover:text-white/60 transition-colors" />
+          <Server className="w-10 h-10 text-white/10 group-hover:text-violet-400/50 transition-colors duration-700" />
         </div>
         <h2 className="text-2xl font-heading font-medium tracking-tight text-white/90 mb-3">
-          No reserves yet
+          The Vault is Empty
         </h2>
-        <p className="text-white/40 text-sm max-w-sm text-center leading-relaxed">
-          You currently have no active MCP server reserves. Generate one from the home page.
+        <p className="text-white/30 text-sm max-w-sm text-center leading-relaxed">
+          You haven't forged any MCP servers yet. Head back to the Home page to start your first project.
         </p>
       </motion.div>
     );
@@ -354,48 +315,62 @@ function ReservePage() {
       transition={{ duration: 0.5 }}
       className="w-full flex flex-col gap-4 mt-6"
     >
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-white/40 text-xs">{servers.length} server{servers.length !== 1 ? "s" : ""} in reserve</p>
+      <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-4">
+        <div className="flex flex-col">
+           <h2 className="text-xl font-heading font-medium text-white/90">MCP Reserve</h2>
+           <p className="text-white/30 text-[10px] uppercase font-mono tracking-widest mt-0.5">
+             {servers.length} secure toolsets detected
+           </p>
+        </div>
         <button
           onClick={load}
-          className="flex items-center gap-1 text-[10px] text-white/30 hover:text-white/70 transition-colors"
+          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80 transition-all"
+          title="Refresh List"
         >
-          <RefreshCw className="w-3 h-3" />
-          Refresh
+          <RefreshCw className="w-4 h-4" />
         </button>
       </div>
-      {servers.map((srv, i) => (
-        <motion.div
-          key={srv.name}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.06, duration: 0.4 }}
-          className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] transition-colors group relative"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Server className="w-4 h-4 text-violet-400/70" />
-              <span className="text-sm font-heading font-medium text-white/90">{srv.name}</span>
-              <span className="text-[10px] font-mono text-white/25 bg-white/5 px-2 py-0.5 rounded-full">
-                {srv.tools_count} tool{srv.tools_count !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <p className="text-xs text-white/40 pl-6 max-w-md truncate">{srv.description}</p>
-            <p className="text-[10px] text-white/20 pl-6 font-mono">
-              {new Date(srv.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
-            </p>
-          </div>
-          <a
-            href={downloadServerUrl(srv.name)}
-            download={`${srv.name}_mcp.py`}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium bg-white/[0.05] border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-white/60 hover:text-white/90 shrink-0"
+      
+      <div className="grid grid-cols-1 gap-3">
+        {servers.map((srv, i) => (
+          <motion.div
+            key={srv.name}
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.05, duration: 0.4 }}
+            className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all group relative"
           >
-            <Download className="w-3.5 h-3.5" />
-            Download
-          </a>
-        </motion.div>
-      ))}
+            <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none" />
+            <div className="flex flex-col gap-1 z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-violet-600/10 text-violet-400 group-hover:scale-110 transition-transform">
+                   <Server className="w-4 h-4" />
+                </div>
+                <div className="flex items-baseline gap-3">
+                   <span className="text-sm font-heading font-medium text-white/90">{srv.name}</span>
+                   <span className="text-[9px] font-mono text-white/20 uppercase tracking-widest">
+                     {srv.tools_count} tool{srv.tools_count !== 1 ? "s" : ""}
+                   </span>
+                </div>
+              </div>
+              <p className="text-xs text-white/40 pl-11 max-w-md truncate">{srv.description || "Experimental MCP tool collection."}</p>
+              <div className="flex items-center gap-2 pl-11 mt-1">
+                 <span className="text-[9px] text-white/15 font-mono">
+                    {new Date(srv.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                 </span>
+              </div>
+            </div>
+            <a
+              href={downloadServerUrl(srv.name)}
+              download={`${srv.name}_mcp.py`}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-white/60 hover:text-white shrink-0 z-10"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Fetch Script
+            </a>
+          </motion.div>
+        ))}
+      </div>
     </motion.div>
   );
 }
@@ -411,73 +386,11 @@ export function AnimatedAIChat() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<GenerateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
->>>>>>> ce7a920e9bb5217749c4c50919cd77f68930a8f0
-
   const [activeView, setActiveView] = useState<"home" | "reserve">("home");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-<<<<<<< HEAD
-    const handleGenerate = async () => {
-        if (!file || !taskDesc.trim()) return;
-        setIsGenerating(true);
-        setResult(null);
-        setError(null);
-
-        try {
-            const name = serverName.trim()
-                ? serverName.trim().replace(/\s+/g, "_").toLowerCase()
-                : file.name.replace(/\.har$/i, "").replace(/\s+/g, "_").toLowerCase();
-
-            const formData = new FormData();
-            formData.append("har_file", file);
-            formData.append("task_description", taskDesc.trim());
-            formData.append("server_name", name);
-
-            const res = await fetch("http://localhost:8000/generate/", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.detail || `Server error: ${res.status}`);
-            }
-
-            const data: GenerateResponse = await res.json();
-            setResult(data);
-        } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Unknown error occurred");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-    const handleDownloadZip = async () => {
-        if (!result) return;
-        const zip = new JSZip();
-        
-        const safeName = serverName.trim()
-            ? serverName.trim().replace(/\s+/g, "_").toLowerCase()
-            : "mcp_server";
-
-        zip.file(`${safeName}.py`, result.server_code);
-        zip.file("claude_desktop_config.json", JSON.stringify(result.claude_config, null, 2));
-        zip.file("README.md", result.readme);
-
-        const content = await zip.generateAsync({ type: "blob" });
-        const url = URL.createObjectURL(content);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${safeName}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    };
-=======
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
->>>>>>> ce7a920e9bb5217749c4c50919cd77f68930a8f0
 
   // Auto-populate server name from filename
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -490,516 +403,325 @@ export function AnimatedAIChat() {
     }
   };
 
-  const canGenerate = !isGenerating && !!file && taskDesc.trim().length > 0 && serverName.trim().length > 0;
-
   const handleGenerate = async () => {
-    if (!canGenerate || !file) return;
+    if (!file || !taskDesc.trim() || !serverName.trim()) return;
+    
     setIsGenerating(true);
     setError(null);
     setResult(null);
+    
     try {
       const res = await generateServer(file, taskDesc.trim(), serverName.trim());
       setResult(res);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Generation failed. Please try again.");
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const canGenerate = !isGenerating && !!file && taskDesc.trim().length > 0 && serverName.trim().length > 0;
+
   return (
-    <div className="flex h-screen w-full bg-black text-white font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-black text-white font-sans overflow-hidden selection:bg-violet-500/30">
       {/* Sidebar */}
       <aside
         className={cn(
-          "border-r border-white/5 bg-white/[0.01] flex flex-col p-6 z-20 shrink-0 transition-all duration-300 relative",
+          "border-r border-white/5 bg-white/[0.01] flex flex-col p-6 z-30 shrink-0 transition-all duration-500 relative",
           isSidebarOpen ? "w-64" : "w-20 items-center px-4"
         )}
       >
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute -right-3 top-8 w-6 h-6 bg-neutral-900 border border-white/10 rounded-full flex items-center justify-center text-white/50 hover:text-white hover:bg-neutral-800 transition-colors z-30"
+          className="absolute -right-3 top-10 w-6 h-6 bg-black border border-white/10 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:border-white/30 transition-all z-40 hover:scale-110 active:scale-90 shadow-2xl"
         >
-          {isSidebarOpen ? <PanelLeftClose className="w-3.5 h-3.5" /> : <PanelLeftOpen className="w-3.5 h-3.5" />}
+          {isSidebarOpen ? <PanelLeftClose className="w-3 h-3" /> : <PanelLeftOpen className="w-3 h-3" />}
         </button>
 
-        <div className={cn("mb-10", isSidebarOpen ? "pl-2" : "flex justify-center")}>
-          <h2 className="text-xl font-heading font-black tracking-widest text-neutral-200 select-none flex items-center">
+        <div className={cn("mb-12", isSidebarOpen ? "pl-2" : "flex justify-center")}>
+          <h2 className="text-xl font-heading font-black tracking-widest select-none flex items-center">
             <span className={cn(isSidebarOpen ? "block" : "hidden")}>
-              MCP<span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-neutral-500">FORGE</span>
+                <span className="text-white">MCP</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-b from-white/40 to-white/10 font-light">FORGE</span>
             </span>
-            <span className={cn(!isSidebarOpen ? "block font-black text-2xl tracking-tighter" : "hidden")}>
-              M<span className="text-neutral-500">F</span>
+            <span className={cn(!isSidebarOpen ? "block font-black text-2xl tracking-tighter text-white" : "hidden")}>
+              M<span className="text-white/20">F</span>
             </span>
           </h2>
         </div>
 
         <nav className="flex flex-col gap-2 w-full">
-          <button
-            onClick={() => setActiveView("home")}
-            className={cn(
-              "flex items-center rounded-xl text-sm font-medium transition-all duration-300 w-full",
-              isSidebarOpen ? "px-4 py-3 gap-3 justify-start" : "p-3 justify-center",
-              activeView === "home"
-                ? "bg-white/10 text-white shadow-sm"
-                : "text-white/40 hover:bg-white/5 hover:text-white/80"
-            )}
-            title={!isSidebarOpen ? "Home" : undefined}
-          >
-            <Home className="w-4 h-4 shrink-0" />
-            {isSidebarOpen && <span>Home</span>}
-          </button>
-          <button
-            onClick={() => setActiveView("reserve")}
-            className={cn(
-              "flex items-center rounded-xl text-sm font-medium transition-all duration-300 w-full",
-              isSidebarOpen ? "px-4 py-3 gap-3 justify-start" : "p-3 justify-center",
-              activeView === "reserve"
-                ? "bg-white/10 text-white shadow-sm"
-                : "text-white/40 hover:bg-white/5 hover:text-white/80"
-            )}
-            title={!isSidebarOpen ? "MCP Reserve" : undefined}
-          >
-            <Server className="w-4 h-4 shrink-0" />
-            {isSidebarOpen && <span>MCP Reserve</span>}
-          </button>
+          {[
+            { id: "home", icon: Home, label: "Home" },
+            { id: "reserve", icon: Server, label: "MCP Reserve" },
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveView(item.id as any)}
+                className={cn(
+                  "flex items-center rounded-2xl text-[13px] font-medium transition-all duration-400 w-full group overflow-hidden relative",
+                  isSidebarOpen ? "px-4 py-3.5 gap-3.5 justify-start" : "p-3.5 justify-center",
+                  isActive
+                    ? "bg-white/10 text-white shadow-[0_0_20px_-10px_rgba(255,255,255,0.3)]"
+                    : "text-white/30 hover:text-white/70"
+                )}
+                title={!isSidebarOpen ? item.label : undefined}
+              >
+                {isActive && (
+                    <motion.div 
+                        layoutId="nav-bg"
+                        className="absolute inset-0 bg-white/5 pointer-events-none"
+                    />
+                )}
+                <Icon className={cn(
+                    "w-4 h-4 shrink-0 transition-all duration-500",
+                    isActive ? "text-violet-400 scale-110" : "group-hover:text-white/80"
+                )} />
+                {isSidebarOpen && <span className="z-10">{item.label}</span>}
+              </button>
+            );
+          })}
         </nav>
+        
+        <div className="mt-auto pt-6 border-t border-white/5 opacity-40">
+           <div className={cn("flex flex-col gap-4", !isSidebarOpen && "items-center")}>
+              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                 <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: "65%" }}
+                    className="h-full bg-white/20"
+                 />
+              </div>
+              {isSidebarOpen && <span className="text-[10px] font-mono tracking-tighter text-white/50">V 1.0.4 — STABLE</span>}
+           </div>
+        </div>
       </aside>
 
       {/* Main Area */}
-      <main className="flex-1 relative overflow-y-auto flex flex-col">
+      <main className="flex-1 relative overflow-hidden flex flex-col bg-[#050505]">
+        {/* Ambient Grid Background */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
+             style={{ backgroundImage: "linear-gradient(to right, #808080 1px, transparent 1px), linear-gradient(to bottom, #808080 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+        
         {/* Background ambient effects */}
         <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
-          <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-fuchsia-500/10 rounded-full mix-blend-normal filter blur-[96px] animate-pulse delay-1000" />
+          <div className="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-violet-600/10 rounded-full mix-blend-normal filter blur-[120px] animate-pulse pointer-events-none" />
+          <div className="absolute bottom-[-10%] right-[10%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full mix-blend-normal filter blur-[120px] animate-pulse delay-700 pointer-events-none" />
         </div>
 
-        <div className="relative z-10 w-full max-w-4xl mx-auto p-8 flex flex-col gap-10 mt-12 pb-24">
-          {/* Header */}
-          <motion.div
-            className="text-center relative inline-block mx-auto mb-2"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-          >
-            <h1 className="text-5xl md:text-6xl font-heading tracking-[-0.04em] flex items-center justify-center gap-3 select-none">
-              <span className="font-light text-neutral-400">MCP</span>
-              <span className="font-black bg-gradient-to-b from-white to-neutral-500 bg-clip-text text-transparent">
-                FORGE
-              </span>
-            </h1>
-            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-neutral-600/60 to-transparent" />
-          </motion.div>
-
-          {/* ── Page content ── */}
-          {activeView === "reserve" ? (
-            <ReservePage />
-          ) : (
-            <>
-              <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
-                {/* Server name input */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.05, ease: "easeOut" }}
-                  className="relative backdrop-blur-3xl bg-white/[0.02] rounded-2xl border border-white/[0.05] shadow-xl px-5 py-3 transition-all focus-within:border-white/20 focus-within:bg-white/[0.03]"
-                >
-                  <label className="block text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wider">
-                    Server name
-                  </label>
-                  <input
-                    type="text"
-                    value={serverName}
-                    onChange={(e) => setServerName(e.target.value)}
-                    placeholder="e.g. github_search"
-                    className="w-full bg-transparent border-none text-white/90 text-sm focus:outline-none placeholder:text-white/25 font-mono"
-                    disabled={isGenerating}
-                  />
-                </motion.div>
-
-                {/* HAR file upload */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-                  className={cn(
-                    "relative backdrop-blur-3xl bg-white/[0.02] rounded-3xl border border-white/[0.05] shadow-xl overflow-hidden transition-colors h-[140px]",
-                    "hover:bg-white/[0.03]",
-                    file ? "border-violet-500/30 bg-violet-500/[0.02]" : ""
-                  )}
-                >
-                  <input
-                    type="file"
-                    accept=".har"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                  />
-                  <div
-                    className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-4"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <AnimatePresence mode="popLayout">
-                      {file ? (
-                        <motion.div
-                          key="file"
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          className="flex flex-col items-center gap-2 text-white/90"
-                        >
-                          <div className="w-10 h-10 rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-300">
-                            <FileIcon className="w-5 h-5" />
-                          </div>
-                          <div className="text-xs font-medium font-mono text-center truncate max-w-[200px]">
-                            {file.name}
-                          </div>
-                          <button
-                            className="text-[10px] text-white/40 hover:text-white/90 mt-1 flex items-center gap-1 z-10 relative"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setFile(null);
-                            }}
-                          >
-                            <XIcon className="w-3 h-3" />
-                            Remove
-                          </button>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="empty"
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          className="flex flex-col items-center gap-3 text-white/40 group"
-                        >
-                            <div className="w-24 h-24 rounded-full bg-white/[0.02] border border-white/5 flex items-center justify-center mb-6 relative overflow-hidden backdrop-blur-sm group">
-                                <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/10 to-transparent pointer-events-none" />
-                                <Server className="w-10 h-10 text-white/20 group-hover:text-white/60 transition-colors" />
-                            </div>
-                            <h2 className="text-2xl font-heading font-medium tracking-tight text-white/90 mb-3">No reserves available right now</h2>
-                            <p className="text-white/40 text-sm max-w-sm text-center leading-relaxed">
-                                You currently have no active MCP server reserves. Start by configuring a new reserve on the home page.
-                            </p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-
-                {/* Task description + Generate button */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-                  className="relative backdrop-blur-3xl bg-white/[0.02] rounded-3xl border border-white/[0.05] shadow-xl p-2 transition-all focus-within:border-white/20 focus-within:bg-white/[0.03] overflow-hidden"
-                >
-                  <AnimatePresence>
-                    {isGenerating && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/60 backdrop-blur-md rounded-3xl z-20 flex flex-col items-center justify-center gap-4 border border-white/[0.05]"
-                      >
-                        <div className="w-8 h-8 rounded-full border-[3px] border-white/20 border-t-violet-400 animate-spin" />
-                        <motion.div
-                          animate={{ opacity: [0.5, 1, 0.5] }}
-                          transition={{ repeat: Infinity, duration: 2 }}
-                          className="font-mono text-xs tracking-widest text-violet-200/80 uppercase"
-                        >
-                          Processing HAR & Generating
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                  
-                  <textarea
-                    ref={textareaRef}
-                    value={taskDesc}
-                    onChange={(e) => setTaskDesc(e.target.value)}
-                    placeholder="Describe your task here…"
-                    className="w-full min-h-[100px] h-auto resize-y bg-transparent border-none text-white/90 text-sm focus:outline-none placeholder:text-white/30 p-4 leading-relaxed relative z-10"
-                    disabled={isGenerating}
-                  />
-                  <div className="flex justify-between items-center px-2 pb-2 pt-2 relative z-10">
-                    <span className="text-[10px] text-white/20 pl-2">{taskDesc.length} chars</span>
-                    <motion.button
-                      onClick={handleGenerate}
-                      disabled={!canGenerate}
-                      whileHover={canGenerate ? { scale: 1.02 } : {}}
-                      whileTap={canGenerate ? { scale: 0.98 } : {}}
-                      className={cn(
-                        "px-4 py-2 rounded-full text-xs font-semibold transition-all flex items-center gap-2",
-                        isGenerating
-                          ? "bg-white/10 text-white/50 cursor-not-allowed"
-                          : canGenerate
-                          ? "bg-white text-black shadow-lg shadow-white/20 hover:shadow-white/30"
-                          : "bg-white/[0.05] text-white/30 cursor-not-allowed"
-                      )}
-                    >
-                      {isGenerating ? (
-                        <>
-<<<<<<< HEAD
-                            <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
-                                {/* Error Display */}
-                                <AnimatePresence>
-                                    {error && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: "auto" }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3 text-red-400 text-xs leading-relaxed"
-                                        >
-                                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                            <p>{error}</p>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
-                                {/* 1. File Upload Box */}
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-                                    className={cn(
-                                        "relative backdrop-blur-3xl bg-white/[0.02] rounded-3xl border border-white/[0.05] shadow-xl overflow-hidden transition-colors h-[140px]",
-                                        "hover:bg-white/[0.03]",
-                                        file ? "border-violet-500/30 bg-violet-500/[0.02]" : ""
-                                    )}
-                                >
-                                    <input
-                                        type="file"
-                                        accept=".har"
-                                        className="hidden"
-                                        ref={fileInputRef}
-                                        onChange={handleFileChange}
-                                    />
-                                    
-                                    <div 
-                                        className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-4"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        <AnimatePresence mode="popLayout">
-                                            {file ? (
-                                                <motion.div 
-                                                    key="file"
-                                                    initial={{ opacity: 0, scale: 0.9 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    exit={{ opacity: 0, scale: 0.9 }}
-                                                    className="flex flex-col items-center gap-2 text-white/90"
-                                                >
-                                                    <div className="w-10 h-10 rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-300">
-                                                        <FileIcon className="w-5 h-5" />
-                                                    </div>
-                                                    <div className="text-xs font-medium font-mono text-center truncate max-w-[200px]">
-                                                        {file.name}
-                                                    </div>
-                                                    <button 
-                                                        className="text-[10px] text-white/40 hover:text-white/90 mt-1 flex items-center gap-1 z-10 relative"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setFile(null);
-                                                        }}
-                                                    >
-                                                        <XIcon className="w-3 h-3" />
-                                                        Remove
-                                                    </button>
-                                                </motion.div>
-                                            ) : (
-                                                <motion.div 
-                                                    key="empty"
-                                                    initial={{ opacity: 0, scale: 0.9 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    exit={{ opacity: 0, scale: 0.9 }}
-                                                    className="flex flex-col items-center gap-3 text-white/40 group"
-                                                >
-                                                    <div className="w-12 h-12 rounded-2xl bg-white/[0.03] group-hover:bg-white/[0.08] transition-colors flex items-center justify-center cursor-pointer">
-                                                        <UploadCloud className="w-5 h-5 group-hover:text-white/90 transition-colors" />
-                                                    </div>
-                                                    <div className="text-xs font-medium">
-                                                        Click to attach a .har file
-                                                    </div>
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                </motion.div>
-
-                                {/* 2. Config & Task Description */}
-                                <motion.div 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-                                    className="relative backdrop-blur-3xl bg-white/[0.02] rounded-3xl border border-white/[0.05] shadow-xl p-4 flex flex-col gap-3"
-                                >
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-[10px] uppercase tracking-wider font-bold text-white/30 ml-2">Server Name</label>
-                                        <input
-                                            type="text"
-                                            value={serverName}
-                                            onChange={(e) => setServerName(e.target.value)}
-                                            placeholder={file ? file.name.replace(/\.har$/i, "").replace(/\s+/g, "_").toLowerCase() : "e.g. my_server"}
-                                            className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-white/10 transition-colors"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5 pt-1">
-                                        <label className="text-[10px] uppercase tracking-wider font-bold text-white/30 ml-2">Task Description</label>
-                                        <textarea
-                                            ref={textareaRef}
-                                            value={taskDesc}
-                                            onChange={(e) => setTaskDesc(e.target.value)}
-                                            placeholder="Describe what this MCP server should do..."
-                                            className="w-full min-h-[80px] bg-white/[0.03] border border-white/[0.05] rounded-xl p-4 text-sm text-white/90 focus:outline-none focus:border-white/10 transition-colors resize-none leading-relaxed"
-                                            disabled={isGenerating}
-                                        />
-                                    </div>
-                                    
-                                    <div className="flex justify-between items-center mt-1">
-                                        <span className="text-[10px] text-white/20 pl-2">
-                                            {taskDesc.length} chars
-                                        </span>
-                                        <motion.button
-                                            onClick={handleGenerate}
-                                            disabled={isGenerating || (!taskDesc.trim() || !file)}
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            className={cn(
-                                                "px-6 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2",
-                                                isGenerating 
-                                                    ? "bg-white/10 text-white/50 cursor-not-allowed"
-                                                    : (taskDesc.trim() && file)
-                                                        ? "bg-white text-black shadow-lg shadow-white/20 hover:shadow-white/30"
-                                                        : "bg-white/[0.05] text-white/30 cursor-not-allowed"
-                                            )}
-                                        >
-                                            {isGenerating ? (
-                                                <>
-                                                    <div className="w-3 h-3 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-                                                    Forging...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Sparkles className="w-3 h-3" />
-                                                    Forge Server
-                                                </>
-                                            )}
-                                        </motion.button>
-                                    </div>
-                                </motion.div>
-                            </div>
-
-                            {/* Output Cards */}
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-                                className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6"
-                            >
-                                {/* File 1: Python Code */}
-                                <div className={cn(
-                                    "flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border transition-all relative group h-[160px]",
-                                    result ? "border-violet-500/20 bg-violet-500/[0.01]" : "border-white/[0.05] opacity-50"
-                                )}>
-                                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-xl bg-violet-500/10 text-violet-300">
-                                                <FileCode2 className="w-5 h-5" />
-                                            </div>
-                                            <div className="font-heading font-medium text-sm">Python Tool</div>
-                                        </div>
-                                        {result && <CopyButton text={result.server_code} />}
-                                    </div>
-                                    <div className="text-[10px] font-mono text-white/40 break-all leading-relaxed">
-                                        {result ? `${result.tools[0]?.name || "server"}.py` : "Waiting for Forge..."}
-                                    </div>
-                                    {result && (
-                                        <div className="mt-auto flex items-center gap-2">
-                                            <span className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-mono">
-                                                {result.tools.length} Tools
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* File 2: Config */}
-                                <div className={cn(
-                                    "flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border transition-all relative group h-[160px]",
-                                    result ? "border-indigo-500/20 bg-indigo-500/[0.01]" : "border-white/[0.05] opacity-50"
-                                )}>
-                                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-300">
-                                                <FileJson className="w-5 h-5" />
-                                            </div>
-                                            <div className="font-heading font-medium text-sm">Claude Config</div>
-                                        </div>
-                                        {result && <CopyButton text={JSON.stringify(result.claude_config, null, 2)} />}
-                                    </div>
-                                    <div className="text-[10px] font-mono text-white/40 break-all leading-relaxed">
-                                        {result ? "claude_desktop_config.json" : "Waiting for Forge..."}
-                                    </div>
-                                    {result && (
-                                        <div className="mt-auto px-2 py-1 bg-white/[0.03] border border-white/5 rounded-lg text-[9px] font-mono text-white/40 truncate">
-                                            {result.install_command}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* File 3: README */}
-                                <div className={cn(
-                                    "flex flex-col gap-3 p-6 rounded-3xl bg-white/[0.02] border transition-all relative group h-[160px]",
-                                    result ? "border-fuchsia-500/20 bg-fuchsia-500/[0.01]" : "border-white/[0.05] opacity-50"
-                                )}>
-                                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-xl bg-fuchsia-500/10 text-fuchsia-300">
-                                                <BookOpen className="w-5 h-5" />
-                                            </div>
-                                            <div className="font-heading font-medium text-sm">Guide</div>
-                                        </div>
-                                        {result && <CopyButton text={result.readme} />}
-                                    </div>
-                                    <div className="text-[10px] font-mono text-white/40 break-all leading-relaxed">
-                                        {result ? "README.md" : "Waiting for Forge..."}
-                                    </div>
-                                    {result && (
-                                        <div className="mt-auto flex items-center gap-2">
-                                            <span className="text-[10px] bg-fuchsia-500/20 text-fuchsia-300 px-2 py-0.5 rounded-full font-mono uppercase">
-                                                Documentation
-                                            </span>
-                                        </div>
-                                    )}
-                                    </div>
-                                </motion.div>
-
-                                {result && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        className="flex justify-center mt-12 pb-20"
-                                    >
-                                        <button
-                                            onClick={handleDownloadZip}
-                                            className="flex items-center gap-2 px-10 py-5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black text-sm shadow-2xl shadow-indigo-500/30 transition-all hover:scale-105 active:scale-95 group"
-                                        >
-                                            <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
-                                            Download Project Bundle (.zip)
-                                        </button>
-                                    </motion.div>
-                                )}
-                            </>
-=======
-                          <div className="w-3 h-3 rounded-full border border-white/20 border-t-white/80 animate-spin" />
-                          Generating...
-                        </>
->>>>>>> ce7a920e9bb5217749c4c50919cd77f68930a8f0
-                    )}
-
+        <div className="relative z-10 flex-1 overflow-y-auto custom-scrollbar">
+           <div className="w-full max-w-4xl mx-auto p-8 flex flex-col gap-12 mt-12 pb-32">
+              {/* Header */}
+              <motion.div
+                className="text-center relative inline-block mx-auto"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, ease: "circOut" }}
+              >
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
+                   <span className="text-[9px] font-black tracking-[0.2em] text-violet-400 uppercase">Automated Integration</span>
                 </div>
-            </main>
+                <h1 className="text-6xl md:text-7xl font-heading tracking-[-0.05em] flex items-center justify-center gap-4 select-none">
+                  <span className="text-white">MCP</span>
+                  <span className="font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40">
+                    FORGE
+                  </span>
+                </h1>
+                <p className="mt-4 text-white/30 text-sm font-medium tracking-wide max-w-md mx-auto leading-relaxed">
+                  Transform API traffic into secure, high-performance MCP server tools in seconds.
+                </p>
+                <div className="mt-8 flex items-center justify-center gap-8">
+                   <div className="h-px w-20 bg-gradient-to-r from-transparent to-white/10" />
+                   <Sparkles className="w-4 h-4 text-white/10" />
+                   <div className="h-px w-20 bg-gradient-to-l from-transparent to-white/10" />
+                </div>
+              </motion.div>
+
+              {/* ── Page content ── */}
+              <AnimatePresence mode="wait">
+                 {activeView === "reserve" ? (
+                    <motion.div 
+                        key="reserve"
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.02 }}
+                        transition={{ duration: 0.4 }}
+                    >
+                        <ReservePage />
+                    </motion.div>
+                 ) : (
+                    <motion.div 
+                        key="home"
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.02 }}
+                        transition={{ duration: 0.4 }}
+                        className="flex flex-col gap-6 w-full max-w-xl mx-auto mt-4"
+                    >
+                        {/* Server name input */}
+                        <div className="relative group">
+                          <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="relative backdrop-blur-3xl bg-white/[0.02] rounded-2xl border border-white/5 p-5 shadow-2xl transition-all focus-within:border-white/20 focus-within:bg-white/[0.04]"
+                          >
+                            <label className="block text-[10px] text-white/25 font-bold uppercase tracking-[0.1em] mb-2 pointer-events-none">
+                              Identify your server
+                            </label>
+                            <input
+                              type="text"
+                              value={serverName}
+                              onChange={(e) => setServerName(e.target.value)}
+                              placeholder="e.g. synapse_collector"
+                              className="w-full bg-transparent border-none text-white text-lg font-medium focus:outline-none placeholder:text-white/10"
+                              disabled={isGenerating}
+                            />
+                          </motion.div>
+                        </div>
+
+                        {/* HAR file upload & Task Desc unified container */}
+                        <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="grid grid-cols-1 md:grid-cols-12 gap-4"
+                        >
+                            {/* File Upload (Left-ish) */}
+                            <div className="md:col-span-5 relative group h-[180px]">
+                                <input
+                                    type="file"
+                                    accept=".har"
+                                    className="hidden"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                />
+                                <div
+                                    className={cn(
+                                        "w-full h-full rounded-2xl border-2 border-dashed transition-all duration-500 cursor-pointer flex flex-col items-center justify-center p-6 gap-3",
+                                        file 
+                                            ? "bg-violet-600/[0.05] border-violet-500/30" 
+                                            : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] hover:border-white/10"
+                                    )}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <div className={cn(
+                                        "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-500",
+                                        file ? "bg-violet-600/20 text-violet-400" : "bg-white/5 text-white/20 group-hover:text-white/40"
+                                    )}>
+                                        {file ? <FileIcon className="w-6 h-6" /> : <UploadCloud className="w-6 h-6" />}
+                                    </div>
+                                    <div className="text-center">
+                                         <p className="text-[11px] font-bold text-white/60 truncate max-w-[140px]">
+                                             {file ? file.name : "Attach .HAR data"}
+                                         </p>
+                                         <p className="text-[9px] text-white/20 uppercase tracking-widest mt-1">
+                                             {file ? "Traffic Detected" : "Network Logs"}
+                                         </p>
+                                    </div>
+                                    {file && (
+                                        <button 
+                                            className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/40 text-white/20 hover:text-white/80 hover:bg-red-500/20 transition-all"
+                                            onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                                        >
+                                            <XIcon className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Task Description (Right-ish) */}
+                            <div className="md:col-span-7 relative group h-[180px]">
+                                <div className="absolute inset-x-0 bottom-0 top-0 rounded-2xl bg-white/[0.02] border border-white/5 focus-within:border-white/20 focus-within:bg-white/[0.04] transition-all p-5">
+                                    <label className="block text-[10px] text-white/25 font-bold uppercase tracking-[0.1em] mb-2">
+                                      Objectives
+                                    </label>
+                                    <textarea
+                                        ref={textareaRef}
+                                        value={taskDesc}
+                                        onChange={(e) => setTaskDesc(e.target.value)}
+                                        placeholder="What logic should I extract?"
+                                        className="w-full h-[100px] bg-transparent border-none text-white/80 text-sm focus:outline-none placeholder:text-white/10 resize-none leading-relaxed overflow-y-auto custom-scrollbar"
+                                        disabled={isGenerating}
+                                    />
+                                    <div className="absolute bottom-4 right-5 text-[9px] font-mono text-white/10">
+                                       {taskDesc.length} CHARS
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+
+                        {/* Forge Button */}
+                        <div className="mt-4 flex flex-col items-center gap-8">
+                             <motion.button
+                                onClick={handleGenerate}
+                                disabled={!canGenerate}
+                                whileHover={canGenerate ? { scale: 1.02, y: -2 } : {}}
+                                whileTap={canGenerate ? { scale: 0.98 } : {}}
+                                className={cn(
+                                    "w-full py-5 rounded-2xl font-black text-sm tracking-[0.1em] uppercase transition-all flex items-center justify-center gap-4 relative overflow-hidden group",
+                                    isGenerating
+                                      ? "bg-white/10 text-white/20 cursor-not-allowed"
+                                      : canGenerate
+                                      ? "bg-white text-black shadow-[0_20px_40px_-15px_rgba(255,255,255,0.4)]"
+                                      : "bg-white/[0.03] text-white/10 cursor-not-allowed border border-white/5"
+                                )}
+                              >
+                                {isGenerating ? (
+                                  <>
+                                    <div className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white animate-spin" />
+                                    <span>Forging Architecture...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className={cn("w-5 h-5 transition-transform group-hover:rotate-12", !canGenerate && "opacity-20")} />
+                                    <span>Forge MCP Server</span>
+                                  </>
+                                )}
+                                
+                                {canGenerate && !isGenerating && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                                )}
+                              </motion.button>
+
+                              {/* Error display */}
+                              <AnimatePresence>
+                                {error && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="w-full flex items-start gap-4 p-5 rounded-2xl bg-red-500/5 border border-red-500/20"
+                                  >
+                                    <div className="p-2 rounded-xl bg-red-500/10 text-red-400">
+                                       <AlertCircle className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                       <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Forge Failure</span>
+                                       <p className="text-[11px] text-red-300/70 leading-relaxed">{error}</p>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+
+                              {/* Result section */}
+                              <div className="w-full">
+                                {result ? (
+                                    <ResultCards result={result} serverName={serverName} />
+                                ) : (
+                                    <PlaceholderCards />
+                                )}
+                              </div>
+                        </div>
+                    </motion.div>
+                 )}
+              </AnimatePresence>
+           </div>
         </div>
-    );
+      </main>
+    </div>
+  );
 }
